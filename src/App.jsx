@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchPokemon, filterPokemon } from "./features/pokemonSlice";
 import "./App.css";
@@ -69,12 +69,24 @@ const App = () => {
     (state) => state.pokemon
   );
   const [selectedPokemon, setSelectedPokemon] = useState(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const audioRef = useRef(null);
 
   useEffect(() => {
     if (status === "idle") {
       dispatch(fetchPokemon());
     }
   }, [status, dispatch]);
+
+  const toggleMusic = () => {
+    if (audioRef.current.paused) {
+      audioRef.current.play();
+      setIsPlaying(true);
+    } else {
+      audioRef.current.pause();
+      setIsPlaying(false);
+    }
+  };
 
   const pokemonTypes = [
     "all",
@@ -95,6 +107,10 @@ const App = () => {
 
   return (
     <div className="anime-background">
+      <audio ref={audioRef} loop src="/pokemon-theme.mp3" />
+      <button className="music-toggle" onClick={toggleMusic}>
+        {isPlaying ? "🔇 Выключить музыку" : "🔊 Включить музыку"}
+      </button>
       <h1 className="title">Pokémon Universe</h1>
       <div className="filter-container">
         {pokemonTypes.map((type) => (
