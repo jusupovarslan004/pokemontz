@@ -1,6 +1,19 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { fetchPokemon, filterPokemon, setPage } from "./features/pokemonSlice";
+import {
+  fetchPokemon,
+  filterPokemon,
+  setPage,
+  searchPokemon,
+  toggleFavorite,
+  searchPokemonAsync,
+  toggleShowFavorites,
+} from "./features/pokemonSlice";
+import { checkAchievements } from "./features/achievementsSlice";
+import LanguageToggle from "./components/LanguageToggle";
+import { selectTranslation } from "./features/languageSlice";
+import ThemeToggle from "./components/ThemeToggle";
+import BurgerMenu from './components/BurgerMenu';
 import "./App.css";
 
 const Modal = ({ pokemon, onClose }) => {
@@ -111,6 +124,58 @@ const LoadingScreen = () => {
   );
 };
 
+const SearchBar = () => {
+  const dispatch = useDispatch();
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const handleSearch = (e) => {
+    const value = e.target.value;
+    setSearchTerm(value);
+    if (value.length >= 2) {
+      // Поиск начинается после ввода 2 символов
+      dispatch(searchPokemon(value));
+      dispatch(searchPokemonAsync(value));
+    } else if (value === "") {
+      dispatch(searchPokemon(""));
+    }
+  };
+
+  return (
+    <div className="search-container">
+      <input
+        type="text"
+        placeholder="Search Pokémon..."
+        value={searchTerm}
+        onChange={handleSearch}
+        className="search-input"
+      />
+    </div>
+  );
+};
+
+const CompareModal = ({ pokemon1, pokemon2, onClose }) => {
+  return (
+    <div className="modal-overlay">
+      <div className="compare-modal">
+        <button className="modal-close" onClick={onClose}>
+          ×
+        </button>
+        <div className="compare-container">
+          <div className="compare-pokemon">
+            <h3>{pokemon1.name}</h3>
+            {/* Статистика первого покемона */}
+          </div>
+          <div className="compare-vs">VS</div>
+          <div className="compare-pokemon">
+            <h3>{pokemon2.name}</h3>
+            {/* Статистика второго покемона */}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const App = () => {
   const dispatch = useDispatch();
   const {
@@ -120,10 +185,17 @@ const App = () => {
     status,
     currentPage,
     totalPages,
+    favorites,
+    showOnlyFavorites,
   } = useSelector((state) => state.pokemon);
+  const achievements = useSelector((state) => state.achievements);
   const [selectedPokemon, setSelectedPokemon] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const audioRef = useRef(null);
+  const translations = useSelector(selectTranslation);
+  const isDark = useSelector((state) => state.theme.isDark);
+
+  console.log("Achievements:", achievements);
 
   useEffect(() => {
     dispatch(fetchPokemon(currentPage));
@@ -161,12 +233,33 @@ const App = () => {
   }
 
   return (
-    <div className="anime-background">
+    <div className={`anime-background ${isDark ? "dark" : "light"}`}>
       <audio ref={audioRef} loop src="/pokemon-theme.mp3" />
-      <button className="music-toggle" onClick={toggleMusic}>
-        {isPlaying ? "🔇 Выключить музыку" : "🔊 Включить музыку"}
-      </button>
-      <h1 className="title">Pokémon Universe</h1>
+      
+      {/* Desktop controls */}
+      <div className="top-controls desktop-only">
+        <div className="left-controls">
+          <LanguageToggle />
+          <ThemeToggle />
+        </div>
+        <button className="music-toggle" onClick={toggleMusic}>
+          {isPlaying ? translations.musicOff : translations.musicOn}
+        </button>
+      </div>
+
+      {/* Mobile burger menu */}
+      <BurgerMenu isPlaying={isPlaying} toggleMusic={toggleMusic} />
+
+      <h1 className="title">{translations.title}</h1>
+      <div className="controls-container">
+        <SearchBar />
+        <button
+          className={`favorites-toggle ${showOnlyFavorites ? "active" : ""}`}
+          onClick={() => dispatch(toggleShowFavorites())}
+        >
+          ❤ Favorites
+        </button>
+      </div>
       <div className="filter-container">
         {pokemonTypes.map((type) => (
           <button
@@ -203,6 +296,18 @@ const App = () => {
                 </span>
               ))}
             </div>
+            <button
+              className={`favorite-button ${
+                favorites.includes(item.id) ? "active" : ""
+              }`}
+              onClick={(e) => {
+                e.stopPropagation();
+                dispatch(toggleFavorite(item.id));
+                dispatch(checkAchievements({ favorites: favorites }));
+              }}
+            >
+              ❤
+            </button>
           </div>
         ))}
       </div>
