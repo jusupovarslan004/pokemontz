@@ -2,8 +2,12 @@ import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 
 export const fetchPokemon = createAsyncThunk(
   "pokemon/fetchPokemon",
-  async () => {
-    const response = await fetch("https://pokeapi.co/api/v2/pokemon?limit=20");
+  async (page = 1) => {
+    const limit = 20;
+    const offset = (page - 1) * limit;
+    const response = await fetch(
+      `https://pokeapi.co/api/v2/pokemon?limit=${limit}&offset=${offset}`
+    );
     const data = await response.json();
     const detailPokemon = await Promise.all(
       data.results.map(async (item) => {
@@ -11,7 +15,10 @@ export const fetchPokemon = createAsyncThunk(
         return response.json();
       })
     );
-    return detailPokemon;
+    return {
+      pokemon: detailPokemon,
+      totalCount: data.count,
+    };
   }
 );
 
@@ -23,6 +30,8 @@ const pokemonSlice = createSlice({
     selectedType: "all",
     status: "idle",
     error: null,
+    currentPage: 1,
+    totalPages: 0,
   },
   reducers: {
     filterPokemon: (state, action) => {
@@ -35,6 +44,9 @@ const pokemonSlice = createSlice({
         );
       }
     },
+    setPage: (state, action) => {
+      state.currentPage = action.payload;
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -43,8 +55,9 @@ const pokemonSlice = createSlice({
       })
       .addCase(fetchPokemon.fulfilled, (state, action) => {
         state.status = "succeeded";
-        state.pokemon = action.payload;
-        state.filteredPokemon = action.payload;
+        state.pokemon = action.payload.pokemon;
+        state.filteredPokemon = action.payload.pokemon;
+        state.totalPages = Math.ceil(action.payload.totalCount / 20);
       })
       .addCase(fetchPokemon.rejected, (state, action) => {
         state.status = "failed";
@@ -53,5 +66,5 @@ const pokemonSlice = createSlice({
   },
 });
 
-export const { filterPokemon } = pokemonSlice.actions;
+export const { filterPokemon, setPage } = pokemonSlice.actions;
 export default pokemonSlice.reducer;

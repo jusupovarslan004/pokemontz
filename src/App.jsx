@@ -1,10 +1,36 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { fetchPokemon, filterPokemon } from "./features/pokemonSlice";
+import { fetchPokemon, filterPokemon, setPage } from "./features/pokemonSlice";
 import "./App.css";
 
 const Modal = ({ pokemon, onClose }) => {
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+
+  useEffect(() => {
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = "unset";
+    };
+  }, []);
+
   if (!pokemon) return null;
+
+  const images = [
+    pokemon.sprites.front_default,
+    pokemon.sprites.back_default,
+    pokemon.sprites.front_shiny,
+    pokemon.sprites.back_shiny,
+    pokemon.sprites.other.dream_world.front_default,
+    pokemon.sprites.other["official-artwork"].front_default,
+  ].filter(Boolean); // Remove null values
+
+  const nextImage = () => {
+    setCurrentImageIndex((prev) => (prev + 1) % images.length);
+  };
+
+  const prevImage = () => {
+    setCurrentImageIndex((prev) => (prev - 1 + images.length) % images.length);
+  };
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -14,11 +40,22 @@ const Modal = ({ pokemon, onClose }) => {
         </button>
         <div className="modal-header">
           <h2 className="modal-title">{pokemon.name}</h2>
-          <img
-            className="modal-image"
-            src={pokemon.sprites.other.dream_world.front_default}
-            alt={pokemon.name}
-          />
+          <div className="image-gallery">
+            <button className="gallery-nav prev" onClick={prevImage}>
+              ❮
+            </button>
+            <img
+              className="modal-image"
+              src={images[currentImageIndex]}
+              alt={`${pokemon.name} sprite ${currentImageIndex + 1}`}
+            />
+            <button className="gallery-nav next" onClick={nextImage}>
+              ❯
+            </button>
+          </div>
+          <div className="image-counter">
+            {currentImageIndex + 1} / {images.length}
+          </div>
         </div>
         <div className="modal-body">
           <h3>Stats</h3>
@@ -63,20 +100,34 @@ const Modal = ({ pokemon, onClose }) => {
   );
 };
 
+const LoadingScreen = () => {
+  return (
+    <div className="anime-background">
+      <div className="loading-container">
+        <div className="pokeball-loading"></div>
+        <h2 className="loading">Catching Pokémon...</h2>
+      </div>
+    </div>
+  );
+};
+
 const App = () => {
   const dispatch = useDispatch();
-  const { filteredPokemon, pokemon, selectedType, status } = useSelector(
-    (state) => state.pokemon
-  );
+  const {
+    filteredPokemon,
+    pokemon,
+    selectedType,
+    status,
+    currentPage,
+    totalPages,
+  } = useSelector((state) => state.pokemon);
   const [selectedPokemon, setSelectedPokemon] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const audioRef = useRef(null);
 
   useEffect(() => {
-    if (status === "idle") {
-      dispatch(fetchPokemon());
-    }
-  }, [status, dispatch]);
+    dispatch(fetchPokemon(currentPage));
+  }, [currentPage, dispatch]);
 
   const toggleMusic = () => {
     if (audioRef.current.paused) {
@@ -97,8 +148,12 @@ const App = () => {
     dispatch(filterPokemon(type));
   };
 
+  const handlePageChange = (newPage) => {
+    dispatch(setPage(newPage));
+  };
+
   if (status === "loading") {
-    return <div className="loading">Loading...</div>;
+    return <LoadingScreen />;
   }
 
   if (status === "failed") {
@@ -155,6 +210,25 @@ const App = () => {
         pokemon={selectedPokemon}
         onClose={() => setSelectedPokemon(null)}
       />
+      <div className="pagination">
+        <button
+          className="pagination-button"
+          disabled={currentPage === 1}
+          onClick={() => handlePageChange(currentPage - 1)}
+        >
+          Previous
+        </button>
+        <span className="page-info">
+          Page {currentPage} of {totalPages}
+        </span>
+        <button
+          className="pagination-button"
+          disabled={currentPage === totalPages}
+          onClick={() => handlePageChange(currentPage + 1)}
+        >
+          Next
+        </button>
+      </div>
     </div>
   );
 };
